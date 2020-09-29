@@ -2,6 +2,7 @@ import argparse
 import jenkins
 import logging
 import os
+import time
 
 
 logging.basicConfig(level=logging.INFO)
@@ -93,8 +94,18 @@ def main():
             return
 
     server = jenkins.Jenkins(jenkins_url, username, login_token)
-    server.build_job(job_name, parameters)
-    logging.info('created a job')
+    queue_item = server.build_job(job_name, parameters)
+    logger.info(f'Job created with queue number {queue_item}')
+    while True:
+        queued_dict = server.get_queue_item(queue_item)
+        if 'executable' in queued_dict:
+            break
+        else:
+            logger.info("Waiting for job to start")
+            time.sleep(1)
+    job_url = queued_dict['executable']['url']
+    logger.info(f"Job running at '{job_url}'")
+    return job_url
 
 
 if __name__ == '__main__':
