@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import jenkins
 import logging
@@ -22,7 +24,10 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('package', type=str, help='The package name')
-    parser.add_argument('branch', type=str, help='The branch name')
+    parser.add_argument('--branch', type=str, default=None,
+                        help='The branch name')
+    parser.add_argument('--repos-url', default=None, type=str,
+                        help="A URL to the repos file to use")
     parser.add_argument('--is-test-above',
                         default=False, action='store_true',
                         help='Should packages above the current package be tested?')
@@ -41,6 +46,7 @@ def main():
 
     package = args.package
     branch = args.branch
+    repos_url = args.repos_url
     is_test_above = args.is_test_above
     is_skip_confirm = args.is_skip_confirm
     is_dry_run = args.dry_run
@@ -49,10 +55,10 @@ def main():
 
     username = os.environ.get('JENKINS_USERNAME')
     if not username:
-        raise EnvironmentError("Environment must have JENKINS_USERNAME variable")
+        raise EnvironmentError('Environment must have JENKINS_USERNAME variable')
     login_token = os.environ.get('JENKINS_TOKEN')
     if not login_token:
-        raise EnvironmentError("Environment must have JENKINS_TOKEN variable")
+        raise EnvironmentError('Environment must have JENKINS_TOKEN variable')
 
     if is_test_above:
         build_args = f'--packages-above-and-dependencies {package}'
@@ -62,7 +68,6 @@ def main():
         test_args = f'--packages-select {package}'
 
     parameters = {
-        'CI_BRANCH_TO_TEST': branch,
         'CI_SCRIPTS_BRANCH': 'master',
         'CI_UBUNTU_DISTRO': 'focal',
         'CI_ROS_DISTRO': 'rolling',
@@ -85,6 +90,10 @@ def main():
                         f'sequential --retest-until-pass 2 --ctest-args '
                         f'-LE xfail --pytest-args -m "not xfail" {test_args}',
     }
+    if branch is not None:
+        parameters['CI_BRANCH_TO_TEST'] = branch
+    if repos_url is not None:
+        parameters['CI_ROS2_REPOS_URL'] = repos_url
 
     if not is_skip_confirm or is_dry_run:
         for key, value in parameters.items():
